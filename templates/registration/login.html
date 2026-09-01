@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Anmelden — PSNV-Wegweiser{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <h1>Anmelden</h1>
+  <div class="form-card">
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {{ field.errors }}
+      </div>
+      {% endfor %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="btn btn--primary btn--block">Anmelden</button>
+    </form>
+  </div>
+  <p class="auth-switch">Noch kein Konto? <a href="{% url 'signup' %}">Jetzt registrieren</a></p>
+</div>
+{% endblock %}

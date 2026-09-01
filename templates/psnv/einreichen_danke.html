@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Danke — PSNV-Wegweiser{% endblock %}
+{% block content %}
+<div class="thanks-page">
+  <div class="thanks-icon">
+    <svg width="48" height="48" viewBox="0 0 32 32" fill="none">
+      <path d="M16 2 C16 2 6 9 6 17 A10 10 0 0 0 26 17 C26 9 16 2 16 2 Z" stroke="currentColor" stroke-width="2"/>
+      <path d="M11 17 L14.5 21 L21 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h1>Vielen Dank!</h1>
+  <p>Ihr Angebot wurde eingereicht und wartet nun auf Prüfung durch unser Team. Sobald es freigegeben ist, erscheint es in der öffentlichen Suche.</p>
+  <a href="{% url 'psnv:suche' %}" class="btn btn--primary">Zurück zur Suche</a>
+</div>
+{% endblock %}

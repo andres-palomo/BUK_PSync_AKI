@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Angebot einreichen — PSNV-Wegweiser{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <span class="eyebrow">Neues Angebot</span>
+  <h1>{{ titel }}</h1>
+  <p class="intro">Ihr Angebot wird nach dem Absenden von unserem Team geprüft und erst danach in der öffentlichen Suche sichtbar.</p>
+
+  <form method="post" class="form-card">
+    {% csrf_token %}
+
+    <fieldset>
+      <legend>Angaben zum Angebot</legend>
+      {% for field in angebot_form %}
+        {% if field.name != 'zielgruppen' and field.name != 'versorgungsphasen' %}
+        <div class="field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<span class="helptext">{{ field.help_text }}</span>{% endif %}
+          {{ field.errors }}
+        </div>
+        {% endif %}
+      {% endfor %}
+      <div class="field">
+        <label>{{ angebot_form.versorgungsphasen.label }}</label>
+        <div class="checkbox-grid">{{ angebot_form.versorgungsphasen }}</div>
+        {{ angebot_form.versorgungsphasen.errors }}
+      </div>
+      <div class="field">
+        <label>{{ angebot_form.zielgruppen.label }}</label>
+        <div class="checkbox-grid">{{ angebot_form.zielgruppen }}</div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Standort</legend>
+      <div class="form-grid-2">
+        <div class="field"><label for="{{ standort_form.street.id_for_label }}">Straße</label>{{ standort_form.street }}</div>
+        <div class="field"><label for="{{ standort_form.house_number.id_for_label }}">Hausnummer</label>{{ standort_form.house_number }}</div>
+        <div class="field"><label for="{{ standort_form.zip_code.id_for_label }}">PLZ</label>{{ standort_form.zip_code }}</div>
+        <div class="field"><label for="{{ standort_form.city.id_for_label }}">Ort</label>{{ standort_form.city }}</div>
+        <div class="field"><label for="{{ standort_form.region.id_for_label }}">Region</label>{{ standort_form.region }}</div>
+        <div class="field"><label for="{{ standort_form.state.id_for_label }}">Bundesland</label>{{ standort_form.state }}</div>
+        <div class="field"><label for="{{ standort_form.country.id_for_label }}">Land</label>{{ standort_form.country }}</div>
+        <div class="field"><label for="{{ standort_form.location_type.id_for_label }}">Standort-Typ</label>{{ standort_form.location_type }}</div>
+        <div class="field"><label for="{{ standort_form.latitude.id_for_label }}">Breitengrad (Latitude)</label>{{ standort_form.latitude }}<span class="helptext">{{ standort_form.latitude.help_text }}</span></div>
+        <div class="field"><label for="{{ standort_form.longitude.id_for_label }}">Längengrad (Longitude)</label>{{ standort_form.longitude }}<span class="helptext">{{ standort_form.longitude.help_text }}</span></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Kontakt</legend>
+      <div class="form-grid-2">
+        {% for field in kontakt_form %}
+        <div class="field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {{ field.errors }}
+        </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn--accent btn--block">Angebot einreichen</button>
+  </form>
+</div>
+{% endblock %}

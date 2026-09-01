@@ -1,36 +1,62 @@
-{% load static %}
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <title>{% block title %}PSync – PSNV Finder{% endblock %}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}PSNV-Wegweiser{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'aki/css/style.css' %}">
+{% block extra_head %}{% endblock %}
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container">
-      <a class="navbar-brand" href="{% url 'psnv:suche' %}">PSync · PSNV-Finder</a>
-      <div class="d-flex gap-2">
-        {% if user.is_authenticated %}
-          <a class="btn btn-outline-light btn-sm" href="{% url 'psnv:einreichen' %}">Angebot einreichen</a>
-          {% if user.is_staff %}<a class="btn btn-outline-light btn-sm" href="/admin/">Moderation</a>{% endif %}
-          <form method="post" action="{% url 'logout' %}" class="d-inline">
-            {% csrf_token %}
-            <button class="btn btn-outline-light btn-sm" type="submit">Abmelden ({{ user.username }})</button>
-          </form>
-        {% else %}
-          <a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Anmelden</a>
-          <a class="btn btn-light btn-sm" href="{% url 'signup' %}">Registrieren</a>
-        {% endif %}
-      </div>
-    </div>
-  </nav>
-  <div class="container pb-5">
-    {% for message in messages %}
-      <div class="alert alert-info">{{ message }}</div>
-    {% endfor %}
-    {% block content %}{% endblock %}
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="brand" href="{% url 'psnv:suche' %}">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="26" height="26">
+          <path d="M16 2 C16 2 6 9 6 17 A10 10 0 0 0 26 17 C26 9 16 2 16 2 Z" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M11 17 L14.5 21 L21 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="brand__text">PSNV<span class="brand__text-accent">-Wegweiser</span></span>
+    </a>
+    <nav class="main-nav">
+      <a href="{% url 'psnv:suche' %}" class="main-nav__link {% if request.resolver_match.url_name == 'suche' %}is-active{% endif %}">Angebote finden</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'psnv:einreichen' %}" class="main-nav__link {% if request.resolver_match.url_name == 'einreichen' %}is-active{% endif %}">Angebot einreichen</a>
+        {% if user.is_staff %}<a href="{% url 'admin:index' %}" class="main-nav__link">Moderation</a>{% endif %}
+        <form action="{% url 'logout' %}" method="post" class="main-nav__form">
+          {% csrf_token %}
+          <span class="main-nav__user">{{ user.get_full_name|default:user.username }}</span>
+          <button type="submit" class="main-nav__link main-nav__link--btn">Abmelden</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}" class="main-nav__link">Anmelden</a>
+        <a href="{% url 'signup' %}" class="main-nav__link main-nav__link--cta">Konto erstellen</a>
+      {% endif %}
+    </nav>
   </div>
+</header>
+
+{% if messages %}
+<div class="messages">
+  {% for message in messages %}
+    <div class="message message--{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<main>
+{% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <p>PSNV-Wegweiser &mdash; ein Verzeichnis psychosozialer Notfallversorgung für Einsatzkräfte. Daten aus Selbstauskünften der Anbieter.</p>
+  </div>
+</footer>
+{% block scripts %}{% endblock %}
 </body>
 </html>

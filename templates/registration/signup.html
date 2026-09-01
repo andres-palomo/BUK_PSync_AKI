@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Konto erstellen — PSNV-Wegweiser{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <h1>Konto erstellen</h1>
+  <div class="form-card">
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<span class="helptext">{{ field.help_text }}</span>{% endif %}
+        {{ field.errors }}
+      </div>
+      {% endfor %}
+      <button type="submit" class="btn btn--primary btn--block">Konto erstellen</button>
+    </form>
+  </div>
+  <p class="auth-switch">Bereits registriert? <a href="{% url 'login' %}">Anmelden</a></p>
+</div>
+{% endblock %}

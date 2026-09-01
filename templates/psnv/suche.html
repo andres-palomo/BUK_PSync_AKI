@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Angebote finden — PSNV-Wegweiser{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+{% endblock %}
+
+{% block content %}
+<section class="suche-hero">
+  <div class="suche-hero__inner">
+    <span class="eyebrow" style="color:rgba(234,242,239,0.6)">PSNV / AKI Verzeichnis</span>
+    <h1>Finden Sie psychosoziale Notfallversorgung</h1>
+    <p>Angebote von Verbänden und Organisationen für Einsatzkräfte — nach Versorgungsphase, Zielgruppe, Gebiet und mehr filterbar.</p>
+  </div>
+</section>
+
+<div class="suche-layout">
+  <aside class="filter-panel">
+    <h2>Filtern</h2>
+    <form method="get" id="filter-form">
+      <div class="field">
+        <label for="{{ filter.form.name.id_for_label }}">{{ filter.form.name.label }}</label>
+        {{ filter.form.name }}
+      </div>
+      <div class="field">
+        <label for="{{ filter.form.ort.id_for_label }}">{{ filter.form.ort.label }}</label>
+        {{ filter.form.ort }}
+      </div>
+      <div class="field">
+        <label for="{{ filter.form.dienst_typ.id_for_label }}">{{ filter.form.dienst_typ.label }}</label>
+        {{ filter.form.dienst_typ }}
+      </div>
+      <div class="field">
+        <label for="{{ filter.form.grundausbildung_stufe.id_for_label }}">{{ filter.form.grundausbildung_stufe.label }}</label>
+        {{ filter.form.grundausbildung_stufe }}
+      </div>
+      <div class="field">
+        <label>{{ filter.form.versorgungsphasen.label }}</label>
+        <div class="checkbox-grid">{{ filter.form.versorgungsphasen }}</div>
+      </div>
+      <div class="field">
+        <label>{{ filter.form.zielgruppen.label }}</label>
+        <div class="checkbox-grid">{{ filter.form.zielgruppen }}</div>
+      </div>
+      <div class="field">
+        <label>{{ filter.form.akut_spezialisierungen.label }}</label>
+        <div class="checkbox-grid">{{ filter.form.akut_spezialisierungen }}</div>
+      </div>
+      <div class="field">
+        <label>{{ filter.form.gebiete.label }}</label>
+        <div class="combo-select" data-combo-select>
+          <button type="button" class="combo-select__toggle" data-combo-toggle>
+            <span data-combo-label>Alle Gebiete</span>
+            <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="combo-select__panel" data-combo-panel>
+            <input type="text" class="combo-select__search" data-combo-search placeholder="Gebiet suchen…" autocomplete="off">
+            <div class="combo-select__options" data-combo-options>
+              {{ filter.form.gebiete }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn--primary btn--block">Filter anwenden</button>
+      <a href="{% url 'psnv:suche' %}" class="btn btn--ghost btn--block" style="margin-top:8px;">Zurücksetzen</a>
+    </form>
+  </aside>
+
+  <div class="results">
+    <div class="results-header">
+      <span class="results-count">{{ result_count }} Angebot{{ result_count|pluralize:"e" }} gefunden</span>
+      <div class="view-toggle" role="tablist">
+        <button type="button" data-view="list" class="is-active">Liste</button>
+        <button type="button" data-view="map">Karte</button>
+      </div>
+    </div>
+
+    <div id="list-view" class="results-view is-active">
+      {% if angebot_liste %}
+        <div class="angebot-grid">
+          {% for angebot in angebot_liste %}
+          <a class="angebot-card" href="{% url 'psnv:angebot_detail' angebot.pk %}">
+            <div>
+              <div class="angebot-card__title">{{ angebot.name }}</div>
+              <div class="angebot-card__meta">
+                {{ angebot.standort.city }}{% if angebot.standort.state %}, {{ angebot.standort.state }}{% endif %}
+                &middot; {{ angebot.get_dienst_typ_display }}
+              </div>
+              {% if angebot.description %}
+              <div class="angebot-card__desc">{{ angebot.description|truncatewords:28 }}</div>
+              {% endif %}
+              <div class="angebot-card__tags">
+                {% for zg in angebot.zielgruppen.all %}<span class="tag">{{ zg.name }}</span>{% endfor %}
+              </div>
+            </div>
+            <div class="angebot-card__side">
+              <div class="phase-track">
+                {% with phase_typen=angebot.phasen_typen %}
+                <span class="phase-dot {% if 'Praevention' in phase_typen %}is-active{% endif %}" title="Prävention"></span>
+                <span class="phase-connector"></span>
+                <span class="phase-dot {% if 'Akutversorgung' in phase_typen %}is-active{% endif %}" title="Akutversorgung"></span>
+                <span class="phase-connector"></span>
+                <span class="phase-dot {% if 'Regelversorgung' in phase_typen %}is-active{% endif %}" title="Regelversorgung"></span>
+                {% endwith %}
+              </div>
+              <span class="tag">{{ angebot.art_betreuung }}</span>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+
+        {% if is_paginated %}
+        <div class="pagination">
+          {% if page_obj.has_previous %}
+            <a href="?{% for key, values in request.GET.lists %}{% if key != 'page' %}{% for v in values %}{{ key }}={{ v }}&amp;{% endfor %}{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">&larr; Zurück</a>
+          {% endif %}
+          <span class="is-current">Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+          {% if page_obj.has_next %}
+            <a href="?{% for key, values in request.GET.lists %}{% if key != 'page' %}{% for v in values %}{{ key }}={{ v }}&amp;{% endfor %}{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">Weiter &rarr;</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% else %}
+        <div class="empty-state">
+          <p><strong>Keine Angebote gefunden.</strong></p>
+          <p>Versuchen Sie, Ihre Filter zu erweitern oder zurückzusetzen.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div id="map-view" class="results-view">
+      <div id="map"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  // View toggle: Liste <-> Karte
+  const toggleButtons = document.querySelectorAll(".view-toggle button");
+  const views = { list: document.getElementById("list-view"), map: document.getElementById("map-view") };
+  let mapInitialized = false;
+
+  toggleButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      toggleButtons.forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      Object.values(views).forEach((v) => v.classList.remove("is-active"));
+      views[btn.dataset.view].classList.add("is-active");
+      if (btn.dataset.view === "map" && !mapInitialized) {
+        initMap();
+        mapInitialized = true;
+      } else if (btn.dataset.view === "map") {
+        map.invalidateSize();
+      }
+    });
+  });
+
+  const markers = {{ map_markers_json|safe }};
+  let map;
+
+  // Searchable multi-select dropdown ("combo-select"). Wraps a normal
+  // Django CheckboxSelectMultiple: a text field filters the visible
+  // options by label text, and the trigger button shows a summary of
+  // the current selection instead of a huge inline checkbox list.
+  document.querySelectorAll("[data-combo-select]").forEach((combo) => {
+    const toggle = combo.querySelector("[data-combo-toggle]");
+    const panel = combo.querySelector("[data-combo-panel]");
+    const search = combo.querySelector("[data-combo-search]");
+    const optionsWrap = combo.querySelector("[data-combo-options]");
+    const labelEl = combo.querySelector("[data-combo-label]");
+    const checkboxes = () => optionsWrap.querySelectorAll('input[type="checkbox"]');
+    const defaultLabel = labelEl.textContent;
+
+    function updateLabel() {
+      const checked = Array.from(checkboxes()).filter((cb) => cb.checked);
+      if (checked.length === 0) {
+        labelEl.textContent = defaultLabel;
+      } else if (checked.length === 1) {
+        labelEl.textContent = checked[0].parentElement.textContent.trim();
+      } else {
+        labelEl.textContent = `${checked.length} ausgewählt`;
+      }
+    }
+
+    toggle.addEventListener("click", () => {
+      const isOpen = combo.classList.toggle("is-open");
+      if (isOpen) search.focus();
+    });
+
+    document.addEventListener("click", (evt) => {
+      if (!combo.contains(evt.target)) combo.classList.remove("is-open");
+    });
+
+    search.addEventListener("input", () => {
+      const term = search.value.trim().toLowerCase();
+      // Django 5's CheckboxSelectMultiple wraps each option in a <div>
+      // (not <li>) containing the <label>; walk up from the checkbox
+      // itself so this keeps working regardless of the wrapper tag.
+      checkboxes().forEach((cb) => {
+        const wrapper = cb.closest("label").parentElement;
+        wrapper.style.display = wrapper.textContent.toLowerCase().includes(term) ? "" : "none";
+      });
+    });
+
+    checkboxes().forEach((cb) => cb.addEventListener("change", updateLabel));
+    updateLabel();
+  });
+
+
+  function initMap() {
+    map = L.map("map");
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap-Mitwirkende",
+      maxZoom: 18,
+    }).addTo(map);
+
+    if (markers.length > 0) {
+      const bounds = [];
+      markers.forEach((m) => {
+        const marker = L.marker([m.lat, m.lng]).addTo(map);
+        marker.bindPopup(
+          `<div class="map-popup__title">${m.name}</div>` +
+          `<div class="map-popup__meta">${m.city} &middot; ${m.dienst_typ}</div>` +
+          `<a class="map-popup__link" href="${m.detail_url}">Details ansehen &rarr;</a>`
+        );
+        bounds.push([m.lat, m.lng]);
+      });
+      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 });
+    } else {
+      map.setView([51.1657, 10.4515], 6); // Deutschland
+    }
+  }
+</script>
+{% endblock %}

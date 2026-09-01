@@ -1,85 +1,118 @@
-# PSync – PSNV-Finder (Django backend)
+# PSync_AKI (PSNV-Wegweiser)
 
-Backend scaffold implementing `Final_DBdiagram.txt` 1:1 as Django models,
-with a public filtered search, a login-gated submission form, and an
-admin-based moderation queue.
+A "Trivago-style" search and directory platform for psychosocial emergency
+care (PSNV) for first responders — list/map views, filters (Zielgruppe,
+Versorgungsphase, Gebiet, Dienst-Typ, PSNV-Stufe, Fachliche Spezialisierung,
+location), and a submission workflow for new offers that a moderator
+approves via the Django admin.
 
-## Setup
+The data model (`aki/models.py`) is a direct implementation of the
+project's DBML schema, grouped into the same seven sections as the schema
+itself.
+
+**Folder notes:**
+
+- The Django app lives in `aki/` (not `psnv/` or `apps/`). Internally, the
+  URL namespace is still `psnv` (e.g. `{% url 'psnv:suche' %}` in
+  templates) — that's just a routing label, unrelated to the app's folder
+  name, so it didn't need to change.
+- Static files live at `aki/static/aki/css/style.css` — that's Django's
+  standard per-app static file layout (`<app>/static/<app_name>/...`),
+  which is why the inner folder is also named `aki`: it's what keeps
+  `{% static 'aki/css/style.css' %}` resolving to the right file if this
+  project ever has more than one app. Django finds it automatically
+  (`AppDirectoriesFinder`, on by default) — no `STATICFILES_DIRS` entry is
+  needed for it.
+
+## Quick start
 
 ```bash
-python3 -m venv venv
+python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-python manage.py migrate
-python manage.py seed_lookup_data  # populates Oberbegriff/Qualifikation/Versorgungsphase/Zielgruppe
-python manage.py createsuperuser
 python manage.py runserver
+
+## to import csv data
+python manage.py import_umfrage <path_to_csv> --clear-seed-tags --dry-run
+
+## To remove the old fake Angebote (keeping only what came from the survey import):
+python manage.py shell -c "from aki.models import PsnvAngebot as P; P.objects.exclude(user__username='umfrage-import').delete()"
 ```
 
-Then:
-- `http://127.0.0.1:8000/` — public search
-- `http://127.0.0.1:8000/accounts/signup/` — register an account (needed to submit)
-- `http://127.0.0.1:8000/admin/` — moderation queue (log in with the superuser)
+Then open <http://127.0.0.1:8000/>. The bundled `db.sqlite3` is already
+migrated and pre-seeded with demo data, so no `migrate`/`seed_data` step is
+required to look at it.
 
-## How the pieces map to your schema
+## Login credentials (demo data)
 
-- **`psnv/models.py`** — every table from `Final_DBdiagram.txt`. `Akteur`
-  and `Team` use Django multi-table inheritance, which gives them a
-  shared primary key with `Anbieter` automatically — the same pattern as
-  `akteur_id = Anbieter.anbieter_id` in the diagram.
-- Plain junction tables (no extra columns) are modeled explicitly with
-  `db_table` set to match the diagram's names, rather than letting
-  Django auto-generate an M2M table, so the DB you inspect matches the
-  diagram you already reviewed.
-- `anbieter_qualifikation.aggregated` is the one junction table with a
-  real extra column, so it gets a proper `through=` model.
+| Role | Username | Password |
+|---|---|---|
+| Admin / moderation (`/admin/`) | `admin` | `psnv-admin-2026` |
+| Regular user (can submit offers) | e.g. `anna.mueller0` (run `python manage.py shell` → `User.objects.values_list("username")` to see all) | `demo-passwort-2026` |
 
-## Moderation workflow
+All demo users share the password `demo-passwort-2026`.
 
-`Anbieter.status` (`pending` / `approved` / `rejected`) and `verified`
-gate visibility:
-- New submissions via the public form always land as `pending`.
-- Only `status=approved, verified=True` entries show up in search
-  (`SucheView.get_queryset`) or are viewable by non-staff on the detail
-  page.
-- Staff approve/reject from the **Anbieter** list in `/admin/` (bulk
-  actions), then edit tags/Fachinformationen from the **Akteur** or
-  **Team** admin pages, which have inlines for every M2M and 1:N table.
+## Pages / features
 
-## One-time survey import
+- **`/`** — Public search: filter sidebar (name, Ort/PLZ, Dienst-Typ,
+  PSNV-Stufe, Versorgungsphase, Zielgruppe, Fachliche Spezialisierung,
+  Gebiet) + list/map view (Leaflet / OpenStreetMap, no API key needed).
+  Only approved (`status=approved`, `verified=True`) Angebote are visible.
+- **`/angebot/<id>/`** — Detail page with every phase-specific field,
+  classification, contact info, and a mini map.
+- **`/einreichen/`** — Login-gated submission form (Angebot + Standort +
+  Kontakt + Versorgungsphase(n)). New Angebote land as `status=pending`
+  and need approval in the admin.
+- **`/admin/`** — Moderation UI: approve/reject bulk actions on the Angebot
+  list, nested inlines for every phase-specific and Angebot-wide detail
+  table. (Admin URLs live under `/admin/aki/...`, matching the `aki/`
+  folder name.)
+- **`/konto/registrieren/`, `/konto/anmelden/`** — Registration/login.
 
-`psnv/management/commands/import_survey.py` is a **starting skeleton**,
-not a finished importer — the TODOs mark where you need to plug in your
-actual export's column names. Cross-reference against
-`PSNV_Frage_Tabelle_Mapping.xlsx` (the question → table mapping we built
-earlier) while filling it in. Run with `--dry-run` first to sanity-check
-row counts before writing to the database.
+## Regenerating demo data
 
-## Known gaps carried over from the schema/mapping discussion
+```bash
+python manage.py seed_data --flush --angebote 65
+```
 
-These didn't have an obvious home in `Final_DBdiagram.txt` — decide how
-you want to handle them before the survey import:
+`--flush` deletes everything the seed script previously created before
+generating fresh data. `--angebote` controls how many PSNV-Angebote get
+created (default: 60).
 
-1. **Question 3.6** (up to 5 Großschadenslagen deployments with
-   Ereignis/Ort/Zeitraum/Tätigkeit) — the diagram only has
-   `Grossschaden_Erfahrung.einsatz_anzahl` (a count), not the deployment
-   details. If you want those preserved, add a child table.
-2. **Abschluss free-text feedback** — no field/table captures this.
-   Low-stakes to skip if you don't need it for the app itself.
-3. **Question 1.3** (intern/extern) currently has no explicit home —
-   `Zielgruppe.intern_nur`/`extern_nur` live on the target-group lookup,
-   not on `Anbieter`, which is conceptually a bit indirect.
+## Files not included here
 
-## Next steps (not yet built)
+A few paths in this project structure are owned by other parts of the
+team's workflow and were intentionally **not** filled in with guessed
+content:
 
-- **Geocoding**: `Standort.latitude`/`longitude` are there but unused.
-  A one-off management command using Nominatim/OSM (free, fits a
-  research project) to backfill them from address fields, run after
-  the survey import.
-- **PostGIS migration**: swap the `DATABASES` block in `settings.py`
-  (commented alternative already included) once you want real
-  distance-based search instead of exact city/PLZ matching.
-- **Styling**: templates are functional Bootstrap-via-CDN, not
-  designed — fine for internal testing, worth a pass before anyone
-  outside the team sees it.
+- `data/raw/oeffentlich.csv`, `data/raw/verifiziert.csv`
+- `aki/management/commands/process_data.py`
+- `aki/scripts/aktualisiere_git.sh`
+- `AKI_Strukturplan_erweitert.xlsx`
+
+Each has either a placeholder file explaining what belongs there, or (for
+the xlsx) a `.PLACEHOLDER.txt` note at the project root. Drop the real
+files in from the original project; nothing else in the app depends on
+their content being any particular way except `process_data.py`, if it's
+meant to load `data/raw/*.csv` into the database — worth checking its
+original logic against `aki/models.py` once it's back in place.
+
+## PostgreSQL / Docker
+
+An earlier version of this project (with the same app-folder structure)
+also supported running against PostgreSQL, via Docker Compose or a
+manually configured Postgres server, with zero code changes needed beyond
+environment variables. That version was set aside for now in favor of this
+simpler SQLite-only setup, but the settings.py changes needed to bring it
+back are small and can be re-added if useful later.
+
+## Known open items (carried over from the schema/code comments)
+
+- `Regelversorgung` (Angebot-wide) and `Taetigkeitsschwerpunkt`
+  (phase-specific) may cover the same underlying concept — flagged as an
+  open question in the original schema, implemented here as two separate
+  tables as-is.
+- The public submission form deliberately doesn't cover every
+  phase-specific detail table (e.g. Verfügbarkeit, Sprachen) — that
+  currently happens in the admin after submission, to keep the public form
+  approachable.
