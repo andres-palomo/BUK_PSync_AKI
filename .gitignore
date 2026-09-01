@@ -207,3 +207,8 @@ marimo/_lsp/
 __marimo__/
 data/
 .idea/
+
+# umfrage data csv
+oeffentlich.csv
+verifiziert.csv
+clean_data*.csv
